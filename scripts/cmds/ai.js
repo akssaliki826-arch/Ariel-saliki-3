@@ -2,7 +2,7 @@ module.exports = {
   config: {
     name: "ai",
     version: "1.0",
-    author: "Célestin Olua",
+    author: "Ariel aks",
     role: 0,
     category: "ai",
     shortDescription: "Intercepte 'Ai' et informe sur les préfixes",
@@ -29,11 +29,11 @@ module.exports = {
 ⚡ IA INDISPONIBLE
 
 🛠️ Pour accéder à l’intelligence artificielle :
-👉 utilisez les commandes : neo ou flash
+👉 utilisez les commandes : Ariel ou aks
 
 💡 Exemples :
-• neo salut
-• flash bonjour
+• Ariel salut
+• aks bonjour
 
 ✨ Système actif, mais accès direct bloqué
 ࿇ ══━━✥🌸✥━━══ ࿇`
