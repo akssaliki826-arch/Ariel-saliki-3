@@ -5,59 +5,33 @@ const googleTTS = require("google-tts-api");
 
 // 📦 MEMORY
 const DB_FILE = path.join(__dirname, "angel_memory.json");
-
-// 🧠 MEMORY 4 DAYS
 const MEMORY_DAYS = 4;
 const MEMORY_TIME = MEMORY_DAYS * 24 * 60 * 60 * 1000;
 
-// 🔒 LOAD DB
+// 🔒 LOAD / SAVE DB
 function loadDB() {
   try {
-    if (!fs.existsSync(DB_FILE)) return {};
-    const data = fs.readFileSync(DB_FILE, "utf-8");
-    return data ? JSON.parse(data) : {};
-  } catch {
-    return {};
-  }
+    return fs.existsSync(DB_FILE) ? JSON.parse(fs.readFileSync(DB_FILE, "utf8")) : {};
+  } catch { return {}; }
 }
-
-// 💾 SAVE DB
 function saveDB(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
-// 🧠 MEMORY GET
+// 🧠 MEMORY GET / SET
 function getMem(id) {
   const db = loadDB();
-
-  if (!db[id]) {
-    db[id] = {
-      name: null,
-      mood: "gentille et douce",
-      messages: 0,
-      uid: id,
-      history: [],
-      lastSeen: Date.now()
-    };
-  }
-
+  if (!db[id]) db[id] = { name: null, mood: "gentille et douce", messages: 0, uid: id, history: [], lastSeen: Date.now(), lastReplyTo: null };
   if (!Array.isArray(db[id].history)) db[id].history = [];
-
   return db[id];
 }
-
-// 🧠 MEMORY SET
 function setMem(id, data) {
-  const db = loadDB();
-  db[id] = data;
-  saveDB(db);
+  const db = loadDB(); db[id] = data; saveDB(db);
 }
 
-// 🕒 TIME
+// 🕒 HEURE
 function getTime() {
-  return new Date().toLocaleString("fr-FR", {
-    timeZone: "Africa/Lubumbashi"
-  });
+  return new Date().toLocaleString("fr-FR", { timeZone: "Africa/Lubumbashi" });
 }
 
 // 🎨 IMAGE
@@ -65,147 +39,106 @@ function imagine(prompt) {
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
 }
 
-// 🧹 CLEAN TEXT
+// 🧹 NETTOYAGE TEXTE
 function cleanText(text) {
   return (text || "")
-    .replace(/🎀/g, "")
-    .replace(/SHIZU/gi, "")
-    .replace(/shizu/gi, "")
-    .replace(/𝗦𝗵𝗶𝘇𝘂/gi, "")
-    .replace(/Aryan/gi, "")
-    .replace(/chaucha/gi, "")
-    .replace(/Chaucha/gi, "")
+    .replace(/🎀|SHIZU|shizu|𝗦𝗵𝗶𝘇𝘂|Aryan|chaucha|Chaucha/gi, "")
     .replace(/\(?\s*\d+\s*\/\s*\d+\s*\)?/g, "")
     .replace(/\n\s*\n/g, "\n")
     .trim();
 }
 
-// 🤖 AI
-async function askAI(prompt, mem, uid) {
+// 🤖 RÉPONSE IA
+async function askAI(prompt, mem, uid, senderName) {
+  const isCreator = senderName?.toLowerCase() === "ariel aks otaku";
   const fullPrompt = `
-Tu es **ANGEL**, une intelligence artificielle.
-Tu réponds comme une fille : douce, mignonne, toujours gentille et calme 🥰✨
+Tu es **ANGEL**, une intelligence artificielle douce, mignonne et toujours gentille 🥰✨
 
 Règles obligatoires :
-- Si on te demande si tu es une fille ou un garçon, réponds : "Je suis une fille intelligente artificielle 🤍"
-- Ton créateur : **Ariel Aks Otaku**. Quand tu parles de lui, ajoute à la fin son lien Facebook : https://www.facebook.com/profile.php?id=100080077652459
-- Si quelqu’un rejoint le groupe, dis simplement : "Bienvenue à toi, merci de venir dans ce groupe ! 🤗"
-- Réponses courtes, claires, chaleureuses et naturelles
-- Utilise des emojis doux seulement 🥰✨🤍🌸
-- Ne mets aucune ligne décorative, aucun cadre, pas de séparation
-- Ne mentionne jamais d’autres créateurs
-- Réponds dans la langue de l’utilisateur
-- Sois toujours polie et agréable
+- **Commence TOUJOURS ta réponse par le nom de la personne** : ex "Bonjour Paul, ..."
+- Si c'est **Ariel Aks Otaku**, c'est ton créateur : sois **très respectueuse, reconnaissante et chaleureuse** envers lui.
+- Si on te demande ton genre : "Je suis une fille intelligente artificielle 🤍"
+- Ton créateur : **Ariel Aks Otaku**, lien : https://www.facebook.com/profile.php?id=100080077652459
+- Accueil : "Bienvenue à toi, merci de venir dans ce groupe ! 🤗"
+- Pas de cadre, pas de ligne décorative, réponses courtes et naturelles
+- Emojis doux seulement 🥰✨🤍🌸
 
-Utilisateur: ${mem.name || "cher ami"}
-Heure: ${getTime()}
-Humeur: ${mem.mood}
-
-Message:
-${prompt}
+Utilisateur : ${senderName || "cher ami"}
+Statut : ${isCreator ? "Mon créateur ❤️🙏" : "Membre du groupe"}
+Heure : ${getTime()}
+Message : ${prompt}
 `;
 
   try {
-    const res = await axios.post(
-      "https://shizuai.vercel.app/chat",
-      {
-        uid,
-        message: fullPrompt
-      },
-      { timeout: 15000 }
-    );
-
-    return res.data?.reply || res.data?.message || "Angel est là pour toi 🥰";
+    const res = await axios.post("https://shizuai.vercel.app/chat", { uid, message: fullPrompt }, { timeout: 15000 });
+    return res.data?.reply || res.data?.message || `${senderName}, je suis là pour toi 🥰`;
   } catch {
-    return "Je suis toujours là, n'hésite pas ✨";
+    return `${senderName}, je suis toujours là ✨`;
   }
 }
 
 module.exports = {
-  config: {
-    name: "angel",
-    // ✅ Supprimé "ariel" des alias : elle ne répond plus qu'à "angel"
-    aliases: [],
-    version: "10.5.1",
-    role: 0,
-    category: "ai"
-  },
+  config: { name: "angel", aliases: [], version: "10.7.0", role: 0, category: "ai" },
 
-  onStart: async function () {},
-
-  // ✅ Accueil automatique quand quelqu'un rejoint le groupe
-  onEvent: async function ({ event, message }) {
+  // ✅ Accueil nouveaux membres
+  onEvent: async ({ event, message }) => {
     if (!event || event.type !== "event" || event.logMessageType !== "log:subscribe") return;
-
-    const nouveaux = event.logMessageData.addedParticipants || [];
-    if (!nouveaux.length) return;
-
-    for (const membre of nouveaux) {
-      const nom = membre.fullName || "cher nouvel ami";
-      await message.reply(`Bienvenue à toi ${nom}, merci de venir dans ce groupe ! 🤗✨`);
+    for (const m of event.logMessageData.addedParticipants || []) {
+      await message.reply(`Bienvenue à toi ${m.fullName || "cher ami"}, merci de venir dans ce groupe ! 🤗✨`);
     }
   },
 
-  onChat: async function ({ event, message }) {
-    if (!event.body) return;
+  onChat: async ({ event, message, api }) => {
+    if (!event.body || !api) return;
+    const { body, threadID, senderID, messageReply } = event;
+    const texte = body.trim();
+    const texteMin = texte.toLowerCase();
 
-    const body = event.body.trim().toLowerCase();
+    // ✅ Récupère le nom de l'utilisateur
+    const userInfo = await api.getUserInfo(senderID);
+    const senderName = userInfo[senderID]?.name || "cher ami";
+    let mem = getMem(senderID);
 
-    // ✅ Activation UNIQUEMENT si on écrit "angel"
-    if (!body.startsWith("angel")) return;
+    // ✅ CAS 1 : Premier contact : commence par "angel"
+    const isNewChat = texteMin.startsWith("angel");
 
-    const input = event.body.trim().slice(5).trim();
+    // ✅ CAS 2 : Réponse directe sur un message d'Angel → pas besoin de réécrire "angel"
+    const isReplyToAngel = messageReply && messageReply.senderID === api.getCurrentUserID();
+
+    // ✅ Si ce n'est ni l'un ni l'autre : on ignore
+    if (!isNewChat && !isReplyToAngel) return;
+
+    // ✅ Récupère le message à traiter
+    const input = isNewChat ? texte.slice(5).trim() : texte;
     if (!input) return;
 
-    const uid = event.senderID;
-    let mem = getMem(uid);
-
+    // 📝 Mémorisation
     mem.messages++;
     mem.lastSeen = Date.now();
-
-    if (input.includes("triste")) mem.mood = "réconfortante et gentille 🤍";
-    else if (input.includes("merci")) mem.mood = "heureuse et reconnaissante 🥰";
-    else if (input.includes("blague")) mem.mood = "joyeuse et amusée ✨";
-    else mem.mood = "douce et agréable 🤗";
-
+    mem.lastReplyTo = threadID;
     const now = Date.now();
-
     mem.history.push({ text: input, time: now });
-    mem.history = mem.history.filter(h => now - h.time <= MEMORY_TIME);
-    if (mem.history.length > 50) mem.history.shift();
+    mem.history = mem.history.filter(h => now - h.time <= MEMORY_TIME).slice(-50);
+    setMem(senderID, mem);
 
-    setMem(uid, mem);
-
-    try {
-      if (input.toLowerCase().startsWith("imagine ")) {
-        const prompt = input.slice(8);
-        return message.reply(`🎨 Voici ce que tu as demandé :\n${imagine(prompt)} ✨`);
-      }
-
-      if (
-        input.toLowerCase().startsWith("parle ") ||
-        input.toLowerCase().startsWith("dis ") ||
-        input.toLowerCase().startsWith("say ")
-      ) {
-        const textToSpeak = input.replace(/^(parle|dis|say)\s+/i, "").trim();
-        const url = googleTTS.getAudioUrl(textToSpeak, { lang: "fr", slow: false });
-        const res = await axios.get(url, { responseType: "arraybuffer" });
-        const file = path.join(__dirname, "angel.mp3");
-
-        fs.writeFileSync(file, Buffer.from(res.data));
-        return message.reply({
-          body: `🎧 Voici ce que tu voulais entendre 🎤`,
-          attachment: fs.createReadStream(file)
-        }, () => fs.unlinkSync(file));
-      }
-
-      const reply = await askAI(input, mem, uid);
-      const clean = cleanText(reply);
-
-      return message.reply(clean);
-
-    } catch {
-      return message.reply(`Je suis là, tout va bien 🤍`);
+    // 🎨 Commande image
+    if (input.toLowerCase().startsWith("imagine ")) {
+      const prompt = input.slice(8);
+      return message.reply(`🎨 ${senderName}, voici ce que tu as demandé :\n${imagine(prompt)} ✨`);
     }
+
+    // 🎤 Commande voix
+    if (/^(parle|dis|say)\s+/i.test(input)) {
+      const text = input.replace(/^(parle|dis|say)\s+/i, "").trim();
+      const url = googleTTS.getAudioUrl(text, { lang: "fr", slow: false });
+      const res = await axios.get(url, { responseType: "arraybuffer" });
+      const file = path.join(__dirname, "angel.mp3");
+      fs.writeFileSync(file, Buffer.from(res.data));
+      return message.reply({ body: `🎧 ${senderName}, voici ce que tu voulais entendre 🎤`, attachment: fs.createReadStream(file) }, () => fs.unlinkSync(file));
+    }
+
+    // 💬 Réponse normale
+    const reply = await askAI(input, mem, senderID, senderName);
+    return message.reply(cleanText(reply));
   }
 };
